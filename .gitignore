@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+.DS_Store
+
+*.json
+!test_*.json
+
+gcp-key-*.json
+service-account*.json
+
+model.onnx
+*.onnx
+models/
