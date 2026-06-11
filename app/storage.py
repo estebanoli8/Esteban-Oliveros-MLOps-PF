@@ -4,15 +4,19 @@ from typing import Dict, Any
 
 from google.cloud import storage
 
-from app.settings import GCP_BUCKET, get_prediction_log_path
+from app.settings import APP_ENV, GCP_BUCKET, get_prediction_log_path
 
 
 def write_prediction_log(payload: Dict[str, Any]) -> None:
     """
     Guarda cada predicción como una línea JSON dentro del archivo TXT del ambiente.
-    Para el demo se usa lectura + escritura del archivo completo.
-    Esto es suficiente para baja concurrencia académica.
+
+    En ambiente test no escribe logs para no contaminar los archivos reales
+    predicciones_dev.txt o predicciones_prod.txt.
     """
+
+    if APP_ENV == "test":
+        return
 
     if not GCP_BUCKET:
         return
