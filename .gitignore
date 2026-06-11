@@ -14,3 +14,6 @@ service-account*.json
 model.onnx
 *.onnx
 models/
+
+tmp_artifacts/
+runtime_artifacts/

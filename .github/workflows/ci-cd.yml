@@ -12,8 +12,16 @@ on:
 
 jobs:
   test:
-    name: Test FastAPI recommender
+    name: Test with external ONNX artifacts
     runs-on: ubuntu-latest
+
+    env:
+      GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
+      MODEL_PREFIX: models/minilm
+      LOCAL_MODEL_DIR: runtime_artifacts/minilm
+      LOCAL_TEST_DATA: runtime_artifacts/test_messages.json
+      APP_ENV: test
+      USE_FAKE_MODEL: "true"
 
     steps:
       - name: Checkout repository
@@ -29,9 +37,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Download external model and test data from Cloud Storage
+        run: |
+          python scripts/download_artifacts.py
+
       - name: Run tests
-        env:
-          USE_FAKE_MODEL: "true"
-          APP_ENV: "test"
         run: |
           pytest -v
