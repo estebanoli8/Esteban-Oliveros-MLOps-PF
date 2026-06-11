@@ -49,3 +49,68 @@ jobs:
       - name: Run tests
         run: |
           pytest -v
+
+  build-and-deploy:
+    name: Build and deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: test
+
+    if: github.event_name == 'push'
+
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
+      GCP_ARTIFACT_REPO: ${{ secrets.GCP_ARTIFACT_REPO }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker authentication
+        run: |
+          gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
+
+      - name: Define deployment variables
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "prod" ]; then
+            echo "APP_ENV=prod" >> $GITHUB_ENV
+            echo "SERVICE_NAME=pf-recommender-prod" >> $GITHUB_ENV
+            echo "IMAGE_TAG=prod" >> $GITHUB_ENV
+          else
+            echo "APP_ENV=dev" >> $GITHUB_ENV
+            echo "SERVICE_NAME=pf-recommender-dev" >> $GITHUB_ENV
+            echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+          fi
+
+          echo "IMAGE_URI=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPO}/pf-api:${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build -t "${IMAGE_URI}" .
+
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push "${IMAGE_URI}"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${SERVICE_NAME}" \
+            --image "${IMAGE_URI}" \
+            --region "${GCP_REGION}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 1 \
+            --set-env-vars APP_ENV="${APP_ENV}",GCP_BUCKET="${GCP_BUCKET}",MODEL_PREFIX="models/minilm",LOCAL_MODEL_DIR="/tmp/mlops-pf-model" \
+            --quiet
