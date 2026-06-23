@@ -146,7 +146,7 @@ class Recommender:
         category_info = CATEGORIES[best_category]
 
         return {
-            "input_text": text,
+            "input_text_test": text,
             "category": best_category,
             "score": round(best_score, 4),
             "recommendation": category_info["recommendation"],
